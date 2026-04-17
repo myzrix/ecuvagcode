@@ -1,0 +1,17 @@
+
+## Structure du projet
+
+- `main.py` : Script principal du tuner
+- `README.md` : Documentation du projet
+- `LICENSE` : Licence du projet
+
+## Limitations
+
+Ce logiciel est une version de base et ne contient pas encore toutes les fonctionnalités avancées de modification des paramètres spécifiques à ME7.5 et MED9. Il s'agit d'une structure de base qui peut être étendue avec :
+- Des tables de mapping spécifiques aux calculateurs
+- Des algorithmes de calcul de checksum
+- Des interfaces graphiques
+- Des fonctionnalités de sauvegarde/chargement de profils
+- Des vérifications de validité des modifications
+- Des sauvegardes de fichiers originaux
+- Des fonctionnalités de comparaison de fichiers
