@@ -55,9 +55,21 @@ class ECUTuner:
             'type': self.current_ecu,
             'size': len(self.data),
             'checksum': hashlib.md5(self.data).hexdigest(),
-            'crc32': hashlib.crc32(self.data) & 0xffffffff
+            'crc32': self.calculate_crc32(self.data)
         }
         return info
+    
+    def calculate_crc32(self, data: bytes) -> int:
+        """Calcule le CRC32 d'un tableau d'octets"""
+        crc = 0xFFFFFFFF
+        for byte in data:
+            crc ^= byte
+            for _ in range(8):
+                if crc & 1:
+                    crc = (crc >> 1) ^ 0xEDB88320
+                else:
+                    crc >>= 1
+        return crc ^ 0xFFFFFFFF
     
     def get_ecu_parameters(self) -> Dict:
         """Récupère les paramètres disponibles pour l'ECU"""
