@@ -3,7 +3,7 @@
 
 """
 Logiciel de tuning d'ECU automobile pour ME7.5 et MED9
-Interface graphique compatible Windows et Linux
+Interface graphique complète avec gestion de projets et comparaison de fichiers
 """
 
 import sys
@@ -13,8 +13,9 @@ from typing import Dict, List, Tuple, Optional, Union
 import argparse
 import hashlib
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, Menu
 import threading
+import json
 
 class ECUTuner:
     """Classe principale pour le tuning d'ECU"""
@@ -136,24 +137,114 @@ class ECUTuner:
         except Exception:
             return False
 
+class ProjectManager:
+    """Gestionnaire de projets"""
+    
+    def __init__(self):
+        self.project_files = []
+        self.project_name = ""
+        self.project_path = ""
+        
+    def create_project(self, name: str, path: str) -> bool:
+        """Crée un nouveau projet"""
+        self.project_name = name
+        self.project_path = path
+        self.project_files = []
+        return True
+    
+    def add_file_to_project(self, file_path: str) -> bool:
+        """Ajoute un fichier au projet"""
+        if file_path not in self.project_files:
+            self.project_files.append(file_path)
+            return True
+        return False
+    
+    def save_project(self) -> bool:
+        """Sauvegarde le projet"""
+        if not self.project_path or not self.project_name:
+            return False
+            
+        project_data = {
+            'name': self.project_name,
+            'files': self.project_files
+        }
+        
+        try:
+            with open(os.path.join(self.project_path, f"{self.project_name}.proj"), 'w') as f:
+                json.dump(project_data, f)
+            return True
+        except Exception:
+            return False
+    
+    def load_project(self, file_path: str) -> bool:
+        """Charge un projet"""
+        try:
+            with open(file_path, 'r') as f:
+                project_data = json.load(f)
+            
+            self.project_name = project_data.get('name', '')
+            self.project_files = project_data.get('files', [])
+            self.project_path = os.path.dirname(file_path)
+            return True
+        except Exception:
+            return False
+
 class ECUTunerGUI:
     """Interface graphique pour le tuner ECU"""
     
     def __init__(self, root):
         self.root = root
         self.root.title("ECU Tuner ME7.5 et MED9")
-        self.root.geometry("800x600")
+        self.root.geometry("1000x700")
         
         # Création du tuner
         self.tuner = ECUTuner()
+        self.project_manager = ProjectManager()
         
         # Variables de l'interface
         self.file_path = tk.StringVar()
         self.ecu_type = tk.StringVar()
         self.selected_param = tk.StringVar()
         self.param_value = tk.StringVar()
+        self.current_view = tk.StringVar(value="1D")
         
+        self.setup_menu()
         self.setup_ui()
+        
+    def setup_menu(self):
+        """Configure le menu principal"""
+        menubar = Menu(self.root)
+        self.root.config(menu=menubar)
+        
+        # Menu Fichier
+        file_menu = Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Fichier", menu=file_menu)
+        file_menu.add_command(label="Nouveau Projet", command=self.new_project)
+        file_menu.add_command(label="Ouvrir Projet", command=self.open_project)
+        file_menu.add_command(label="Enregistrer Projet", command=self.save_project)
+        file_menu.add_separator()
+        file_menu.add_command(label="Charger Fichier", command=self.load_file)
+        file_menu.add_command(label="Sauvegarder Fichier", command=self.save_file)
+        file_menu.add_separator()
+        file_menu.add_command(label="Quitter", command=self.root.quit)
+        
+        # Menu Affichage
+        view_menu = Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Affichage", menu=view_menu)
+        view_menu.add_radiobutton(label="Vue 1D", variable=self.current_view, value="1D", command=self.update_view)
+        view_menu.add_radiobutton(label="Vue 2D", variable=self.current_view, value="2D", command=self.update_view)
+        view_menu.add_radiobutton(label="Vue 3D", variable=self.current_view, value="3D", command=self.update_view)
+        
+        # Menu Outils
+        tools_menu = Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Outils", menu=tools_menu)
+        tools_menu.add_command(label="Comparateur de fichiers", command=self.open_comparator)
+        tools_menu.add_command(label="Afficher Structure", command=self.show_structure)
+        
+        # Menu Aide
+        help_menu = Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Aide", menu=help_menu)
+        help_menu.add_command(label="À propos", command=self.show_about)
         
     def setup_ui(self):
         """Configure l'interface utilisateur"""
@@ -188,7 +279,7 @@ class ECUTunerGUI:
         ttk.Button(button_frame, text="Charger", command=self.load_file).grid(row=0, column=0, padx=(0, 5))
         ttk.Button(button_frame, text="Détecter", command=self.detect_ecu).grid(row=0, column=1, padx=(0, 5))
         ttk.Button(button_frame, text="Sauvegarder", command=self.save_file).grid(row=0, column=2, padx=(0, 5))
-        ttk.Button(button_frame, text="Afficher Structure", command=self.show_structure).grid(row=0, column=3, padx=(0, 5))
+        ttk.Button(button_frame, text="Ajouter au Projet", command=self.add_to_project).grid(row=0, column=3, padx=(0, 5))
         
         # Section paramètres
         param_frame = ttk.LabelFrame(main_frame, text="Paramètres", padding="10")
@@ -220,6 +311,25 @@ class ECUTunerGUI:
         # Barre de progression
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
         self.progress.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+        
+        # Zone d'affichage selon la vue
+        self.view_frame = ttk.LabelFrame(main_frame, text="Affichage", padding="10")
+        self.view_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        self.view_frame.columnconfigure(0, weight=1)
+        self.view_frame.rowconfigure(0, weight=1)
+        
+        self.view_display = tk.Text(self.view_frame, height=10, wrap=tk.WORD)
+        self.view_display.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+    def update_view(self):
+        """Met à jour l'affichage selon la vue sélectionnée"""
+        view_type = self.current_view.get()
+        self.view_display.delete(1.0, tk.END)
+        self.view_display.insert(1.0, f"Affichage en {view_type}\n")
+        self.view_display.insert(tk.END, "Cette zone affichera les données selon le type de vue sélectionné.\n")
+        self.view_display.insert(tk.END, "1D: Affichage linéaire des données\n")
+        self.view_display.insert(tk.END, "2D: Affichage graphique en deux dimensions\n")
+        self.view_display.insert(tk.END, "3D: Affichage graphique en trois dimensions\n")
         
     def browse_file(self):
         """Ouvre une boîte de dialogue pour choisir un fichier"""
@@ -386,6 +496,135 @@ class ECUTunerGUI:
             messagebox.showerror("Erreur", f"Erreur lors de la modification: {str(e)}")
         finally:
             self.progress.stop()
+    
+    def new_project(self):
+        """Crée un nouveau projet"""
+        project_name = tk.simpledialog.askstring("Nouveau Projet", "Nom du projet:")
+        if project_name:
+            project_path = filedialog.askdirectory(title="Sélectionner le dossier du projet")
+            if project_path:
+                if self.project_manager.create_project(project_name, project_path):
+                    messagebox.showinfo("Succès", f"Projet {project_name} créé avec succès")
+                else:
+                    messagebox.showerror("Erreur", "Impossible de créer le projet")
+    
+    def open_project(self):
+        """Ouvre un projet existant"""
+        file_path = filedialog.askopenfilename(
+            title="Ouvrir un projet",
+            filetypes=[("Fichiers projet", "*.proj"), ("Tous les fichiers", "*.*")]
+        )
+        if file_path:
+            if self.project_manager.load_project(file_path):
+                messagebox.showinfo("Succès", "Projet chargé avec succès")
+            else:
+                messagebox.showerror("Erreur", "Impossible de charger le projet")
+    
+    def save_project(self):
+        """Sauvegarde le projet en cours"""
+        if self.project_manager.project_name:
+            if self.project_manager.save_project():
+                messagebox.showinfo("Succès", "Projet sauvegardé avec succès")
+            else:
+                messagebox.showerror("Erreur", "Impossible de sauvegarder le projet")
+        else:
+            messagebox.showwarning("Avertissement", "Aucun projet en cours")
+    
+    def add_to_project(self):
+        """Ajoute le fichier actuel au projet"""
+        if not self.file_path.get():
+            messagebox.showwarning("Avertissement", "Veuillez charger un fichier")
+            return
+            
+        if self.project_manager.add_file_to_project(self.file_path.get()):
+            messagebox.showinfo("Succès", "Fichier ajouté au projet")
+        else:
+            messagebox.showwarning("Avertissement", "Fichier déjà dans le projet")
+    
+    def open_comparator(self):
+        """Ouvre le comparateur de fichiers"""
+        # Création d'une nouvelle fenêtre pour le comparateur
+        comp_window = tk.Toplevel(self.root)
+        comp_window.title("Comparateur de fichiers")
+        comp_window.geometry("600x400")
+        
+        # Zone de sélection des fichiers
+        ttk.Label(comp_window, text="Fichier 1:").grid(row=0, column=0, sticky=tk.W, padx=(10, 5), pady=(10, 5))
+        file1_var = tk.StringVar()
+        ttk.Entry(comp_window, textvariable=file1_var, width=40).grid(row=0, column=1, padx=(0, 5), pady=(10, 5))
+        ttk.Button(comp_window, text="Parcourir", command=lambda: file1_var.set(
+            filedialog.askopenfilename(title="Sélectionner le premier fichier", 
+                                     filetypes=[("Fichiers ECU", "*.bin"), ("Tous les fichiers", "*.*")]
+            ))).grid(row=0, column=2, padx=(0, 10), pady=(10, 5))
+        
+        ttk.Label(comp_window, text="Fichier 2:").grid(row=1, column=0, sticky=tk.W, padx=(10, 5), pady=(5, 10))
+        file2_var = tk.StringVar()
+        ttk.Entry(comp_window, textvariable=file2_var, width=40).grid(row=1, column=1, padx=(0, 5), pady=(5, 10))
+        ttk.Button(comp_window, text="Parcourir", command=lambda: file2_var.set(
+            filedialog.askopenfilename(title="Sélectionner le deuxième fichier", 
+                                     filetypes=[("Fichiers ECU", "*.bin"), ("Tous les fichiers", "*.*")]
+            ))).grid(row=1, column=2, padx=(0, 10), pady=(5, 10))
+        
+        # Bouton de comparaison
+        ttk.Button(comp_window, text="Comparer", command=lambda: self.compare_files(
+            file1_var.get(), file2_var.get(), comp_window)).grid(row=2, column=1, pady=(10, 10))
+        
+        # Zone de résultats
+        result_text = tk.Text(comp_window, height=15, width=70)
+        result_text.grid(row=3, column=0, columnspan=3, padx=10, pady=(10, 10), sticky=(tk.W, tk.E, tk.N, tk.S))
+        result_text.config(state=tk.DISABLED)
+    
+    def compare_files(self, file1_path, file2_path, window):
+        """Compare deux fichiers"""
+        try:
+            with open(file1_path, 'rb') as f1, open(file2_path, 'rb') as f2:
+                data1 = f1.read()
+                data2 = f2.read()
+            
+            # Comparaison des tailles
+            if len(data1) != len(data2):
+                result = f"Tailles différentes : {len(data1)} vs {len(data2)} octets\n"
+            else:
+                result = f"Tailles identiques : {len(data1)} octets\n"
+            
+            # Comparaison des checksums
+            md5_1 = hashlib.md5(data1).hexdigest()
+            md5_2 = hashlib.md5(data2).hexdigest()
+            result += f"MD5 1: {md5_1}\n"
+            result += f"MD5 2: {md5_2}\n"
+            
+            if md5_1 == md5_2:
+                result += "Les fichiers sont identiques\n"
+            else:
+                result += "Les fichiers sont différents\n"
+            
+            # Affichage des différences
+            result += "\nDifférences :\n"
+            differences = 0
+            for i, (b1, b2) in enumerate(zip(data1, data2)):
+                if b1 != b2:
+                    result += f"Octet {i:06X} : {b1:02X} vs {b2:02X}\n"
+                    differences += 1
+                    if differences > 20:  # Limite pour éviter le trop de résultats
+                        result += f"... et {len(data1) - i} différences supplémentaires\n"
+                        break
+            
+            if differences == 0 and len(data1) == len(data2):
+                result += "Aucune différence trouvée\n"
+            
+            # Affichage dans la fenêtre
+            result_text = window.nametowidget(window.winfo_children()[6])  # Récupère le Text widget
+            result_text.config(state=tk.NORMAL)
+            result_text.delete(1.0, tk.END)
+            result_text.insert(1.0, result)
+            result_text.config(state=tk.DISABLED)
+            
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la comparaison : {str(e)}")
+    
+    def show_about(self):
+        """Affiche les informations à propos"""
+        messagebox.showinfo("À propos", "ECU Tuner ME7.5 et MED9\nVersion 1.0\nLogiciel de tuning d'ECU automobile")
 
 def main():
     """Fonction principale"""
