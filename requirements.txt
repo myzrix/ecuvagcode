@@ -1,1 +1,2 @@
 matplotlib
+Pillow  # Ajout de Pillow pour gérer l'ouverture des images
