@@ -11,4 +11,19 @@ except ModuleNotFoundError:
 
 logging.info("Le script a démarré correctement.")
 
-# Le reste de votre code ici
+# Ajoutez vos fonctionnalités ici
+logging.debug("Début des fonctionnalités principales")
+
+# Exemple de fonctionnalité : afficher une figure matplotlib
+try:
+    logging.debug("Création d'une figure")
+    plt.figure()
+    logging.debug("Figure créée avec succès")
+except Exception as e:
+    logging.error(f"Erreur lors de la création de la figure: {e}")
+
+logging.debug("Fin des fonctionnalités principales")
+
+# Fermez les figures matplotlib
+plt.close('all')
+logging.info("Le script s'est terminé correctement.")
