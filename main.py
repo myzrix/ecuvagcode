@@ -203,7 +203,7 @@ class ECUTunerGUI:
         
         # Variables de l'interface
         self.file_path = tk.StringVar()
-        self.ecu_type = tk.StringVar()
+        self.ecu_type = tk.StringVar(value="Auto")  # Changement ici pour la détection automatique
         self.selected_param = tk.StringVar()
         self.param_value = tk.StringVar()
         self.current_view = tk.StringVar(value="1D")
@@ -270,7 +270,6 @@ class ECUTunerGUI:
         ttk.Label(file_frame, text="Type d'ECU:").grid(row=1, column=0, sticky=tk.W, pady=(5, 0), padx=(0, 5))
         ecu_combo = ttk.Combobox(file_frame, textvariable=self.ecu_type, values=['ME7.5', 'MED9'], state="readonly")
         ecu_combo.grid(row=1, column=1, sticky=tk.W, pady=(5, 0), padx=(0, 5))
-        ecu_combo.set("Auto")
         
         # Boutons
         button_frame = ttk.Frame(file_frame)
