@@ -334,6 +334,7 @@ class ECUTunerGUI:
         """Ouvre une boîte de dialogue pour choisir un fichier"""
         file_path = filedialog.askopenfilename(
             title="Sélectionner un fichier ECU",
+            initialdir=os.path.expanduser("~"),
             filetypes=[("Fichiers ECU", "*.bin"), ("Tous les fichiers", "*.*")]
         )
         if file_path:
@@ -390,6 +391,7 @@ class ECUTunerGUI:
             
         save_path = filedialog.asksaveasfilename(
             title="Sauvegarder le fichier modifié",
+            initialdir=os.path.expanduser("~"),
             defaultextension=".bin",
             filetypes=[("Fichiers ECU", "*.bin"), ("Tous les fichiers", "*.*")]
         )
@@ -551,18 +553,12 @@ class ECUTunerGUI:
         ttk.Label(comp_window, text="Fichier 1:").grid(row=0, column=0, sticky=tk.W, padx=(10, 5), pady=(10, 5))
         file1_var = tk.StringVar()
         ttk.Entry(comp_window, textvariable=file1_var, width=40).grid(row=0, column=1, padx=(0, 5), pady=(10, 5))
-        ttk.Button(comp_window, text="Parcourir", command=lambda: file1_var.set(
-            filedialog.askopenfilename(title="Sélectionner le premier fichier", 
-                                     filetypes=[("Fichiers ECU", "*.bin"), ("Tous les fichiers", "*.*")]
-            ))).grid(row=0, column=2, padx=(0, 10), pady=(10, 5))
+        ttk.Button(comp_window, text="Parcourir", command=lambda: self.select_file(file1_var, comp_window)).grid(row=0, column=2, padx=(0, 10), pady=(10, 5))
         
         ttk.Label(comp_window, text="Fichier 2:").grid(row=1, column=0, sticky=tk.W, padx=(10, 5), pady=(5, 10))
         file2_var = tk.StringVar()
         ttk.Entry(comp_window, textvariable=file2_var, width=40).grid(row=1, column=1, padx=(0, 5), pady=(5, 10))
-        ttk.Button(comp_window, text="Parcourir", command=lambda: file2_var.set(
-            filedialog.askopenfilename(title="Sélectionner le deuxième fichier", 
-                                     filetypes=[("Fichiers ECU", "*.bin"), ("Tous les fichiers", "*.*")]
-            ))).grid(row=1, column=2, padx=(0, 10), pady=(5, 10))
+        ttk.Button(comp_window, text="Parcourir", command=lambda: self.select_file(file2_var, comp_window)).grid(row=1, column=2, padx=(0, 10), pady=(5, 10))
         
         # Bouton de comparaison
         ttk.Button(comp_window, text="Comparer", command=lambda: self.compare_files(
@@ -572,6 +568,19 @@ class ECUTunerGUI:
         result_text = tk.Text(comp_window, height=15, width=70)
         result_text.grid(row=3, column=0, columnspan=3, padx=10, pady=(10, 10), sticky=(tk.W, tk.E, tk.N, tk.S))
         result_text.config(state=tk.DISABLED)
+    
+    def select_file(self, file_var, window):
+        """Sélectionne un fichier parmi les fichiers du projet"""
+        if self.project_manager.project_files:
+            file_path = filedialog.askopenfilename(
+                title="Sélectionner un fichier",
+                initialdir=self.project_manager.project_path,
+                filetypes=[("Fichiers ECU", "*.bin"), ("Tous les fichiers", "*.*")]
+            )
+            if file_path:
+                file_var.set(file_path)
+        else:
+            messagebox.showwarning("Avertissement", "Aucun fichier dans le projet")
     
     def compare_files(self, file1_path, file2_path, window):
         """Compare deux fichiers"""
