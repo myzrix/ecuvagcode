@@ -16,6 +16,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, Menu
 import threading
 import json
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class ECUTuner:
     """Classe principale pour le tuning d'ECU"""
@@ -317,19 +319,41 @@ class ECUTunerGUI:
         self.view_frame.columnconfigure(0, weight=1)
         self.view_frame.rowconfigure(0, weight=1)
         
-        self.view_display = tk.Text(self.view_frame, height=10, wrap=tk.WORD)
-        self.view_display.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.view_display = FigureCanvasTkAgg(plt.figure(figsize=(8, 4)), master=self.view_frame)
+        self.view_display.get_tk_widget().grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
     def update_view(self):
         """Met à jour l'affichage selon la vue sélectionnée"""
         view_type = self.current_view.get()
-        self.view_display.delete(1.0, tk.END)
-        self.view_display.insert(1.0, f"Affichage en {view_type}\n")
-        self.view_display.insert(tk.END, "Cette zone affichera les données selon le type de vue sélectionné.\n")
-        self.view_display.insert(tk.END, "1D: Affichage linéaire des données\n")
-        self.view_display.insert(tk.END, "2D: Affichage graphique en deux dimensions\n")
-        self.view_display.insert(tk.END, "3D: Affichage graphique en trois dimensions\n")
+        if not self.tuner.data:
+            return
         
+        plt.figure(figsize=(8, 4))
+        plt.clf()
+        
+        if view_type == "1D":
+            plt.plot(range(len(self.tuner.data)), self.tuner.data)
+            plt.title("Vue 1D")
+            plt.xlabel("Octet")
+            plt.ylabel("Valeur")
+        elif view_type == "2D":
+            data_2d = [self.tuner.data[i:i+100] for i in range(0, len(self.tuner.data), 100)]
+            plt.imshow(data_2d, aspect='auto', cmap='gray')
+            plt.title("Vue 2D")
+            plt.xlabel("Octet")
+            plt.ylabel("Bloc")
+        elif view_type == "3D":
+            data_3d = [self.tuner.data[i:i+100] for i in range(0, len(self.tuner.data), 100)]
+            ax = plt.figure().add_subplot(projection='3d')
+            x = list(range(len(data_3d)))
+            y = list(range(len(data_3d[0])))
+            X, Y = np.meshgrid(x, y)
+            Z = np.array(data_3d).T
+            ax.plot_surface(X, Y, Z, cmap='viridis')
+            plt.title("Vue 3D")
+        
+        self.view_display.draw()
+    
     def browse_file(self):
         """Ouvre une boîte de dialogue pour choisir un fichier"""
         file_path = filedialog.askopenfilename(
